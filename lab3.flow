@@ -1,0 +1,82 @@
+import runtime;
+import string;
+import ds/array;
+
+fib_rec(n : int) -> [int]
+{
+    if (n < 1) {
+        []
+    }
+    else if (n == 1) {
+        [0]
+    }
+    else if (n == 2) {
+        [0, 1]      
+    }
+    else {
+        arr : [int] = fib_rec(n - 1);
+        if (n > 2) {
+            len = length(arr);
+            arr2 = arrayPush(arr, arr[len - 2] + arr[len - 1]);
+            arr2;
+        }
+        else {
+            arr;
+        }
+    }
+}
+
+fib_tail(n : int, arr : [int]) -> [int]
+{
+    len = length(arr);
+
+    if (len < n) {
+        if (len == 0) {
+            fib_tail(n, arrayPush(arr, 0));
+        }
+        else if (len == 1) {
+            fib_tail(n, arrayPush(arr, 1));
+        }
+        else {
+            fib_tail(n, arrayPush(arr, arr[len - 2] + arr[len - 1]));
+        }
+    }
+    else {
+        arr;
+    }
+}
+
+fib_ref(n : int, arr : ref [int]) -> ref [int]
+{
+    len = length(^arr);
+
+    if (len < n) {
+        if (len == 0) {
+            refArrayPush(arr, 0);
+            fib_ref(n, arr);
+        }
+        else if (len == 1) {
+            refArrayPush(arr, 1);
+            fib_ref(n, arr);
+        }
+        else {
+            refArrayPush(arr, (^arr)[len - 2] + (^arr)[len - 1]);
+            fib_ref(n, arr);
+        }
+    }
+    else {
+        arr;
+    }
+}
+
+main() {
+    // arr : [int] = fib_rec(7);
+    // println(arr);
+
+    arr2 = fib_tail(8, []);
+    println(arr2);
+
+    // arr = ref [];
+    // arr2 = fib_ref(7, arr);
+    // println(arr2);
+}

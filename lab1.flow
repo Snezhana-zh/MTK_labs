@@ -1,0 +1,14 @@
+import runtime;
+import string;
+
+fun(arr : [int]) -> [string]
+{
+    map(arr, \x->i2s(x));
+}
+
+main() {
+    arr : [int] = [1, 2, 3, 4];
+    arr2 = fun(arr);
+    println(arr2);
+}
+

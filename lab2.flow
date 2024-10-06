@@ -1,0 +1,8 @@
+import runtime;
+import string;
+
+main() {
+    arr : [int] = [1, 2, 3];
+    sum = fold(arr, 0, \a,x -> a + x);
+    println(sum);
+}

@@ -1,0 +1,57 @@
+import runtime;
+import string;
+import ds/tree;
+import ds/set;
+
+inds(arr : [int], m : int) -> [Pair<int, int>]
+{
+    foldi(arr, [], \i, acc, x -> {
+        foldi(arr, acc, \j, acc2, y -> {
+            if (x + y == m && i < j) {
+                concat(acc2, [Pair(i, j)]);
+            }
+            else {
+                acc2;
+            }
+        });
+    });
+}
+
+makePairs(v : int, a : [int]) -> [Pair<int, int>] 
+{
+    if (length(a) == 0) {
+        []
+    }
+    else {
+        if (v < a[0]) {
+            arrayPush(makePairs(v, tail(a)), Pair(v, a[0]));
+        }
+        else {
+            makePairs(v, tail(a));
+        }
+    }
+}
+
+inds2(arr : [int], m : int) -> [Pair<int, int>]
+{
+    t : Tree<int, [int]>  = foldi(arr, makeTree(), \value, tree, key -> setTree(tree, key, arrayPush(getTreeArrayValue(tree, key), value)));
+
+    foldi(arr, [], \i, acc, x -> {
+        switch(lookupTree(t, m - x)) {
+            None() : acc;
+            Some(a) : concat(acc, makePairs(i, a));
+        }
+    });
+}
+
+main() {
+    arr : [int] = [1,0,3,3,9];
+    m = 3;
+    res : [Pair<int, int>] = inds(arr, m);
+    println(res);
+
+    // arr : [int] = [1,0,3,3,9];
+    // m = 3;
+    // res : [Pair<int, int>] = inds2(arr, m);
+    // println(res);
+}
