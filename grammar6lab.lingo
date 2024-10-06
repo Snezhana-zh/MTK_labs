@@ -1,0 +1,10 @@
+exp = token+:t {parseTokens(:t)};
+
+token = ws int:t ws {:t} | plus | mul;
+plus = ws '+' ws {PlusRPN()};
+mul = ws '*' ws {AsterRPN()};
+int = digit+$d {IntRPN(s2i($d))};
+
+ws = s*;
+s = " " | "\t" | "\n";
+digit = '0'-'9';
