@@ -1,0 +1,76 @@
+import string;
+import lingo/pegcode/driver;
+
+Exp ::= Add, Mul, Int;
+Add : (e1 : Exp, e2 : Exp);
+Mul : (e1 : Exp, e2 : Exp);
+Int : (i : int);
+
+lingoGrammarOp : ref Maybe<[PegOp]> = ref None();
+
+lingoGrammar() {
+	onlyOnce(lingoGrammarOp, \ -> {
+		compilePegGrammar("#include labs/mygrammar.lingo");
+	});
+}
+
+calc(e: Exp) -> int {
+    switch(e) {
+        Add(e1, e2): calc(e1) + calc(e2);
+        Mul(e1, e2): calc(e1) * calc(e2);
+        Int(i): i;
+    }
+}
+
+makeStringFromExpr(e: Exp, wasMul : bool) -> string {
+    switch(e) {
+        Add(e1, e2): {
+            if (wasMul) {
+                "(" + makeStringFromExpr(e1, false) + " + " + makeStringFromExpr(e2, false) + ")";
+            }
+            else {
+                makeStringFromExpr(e1, false) + " + " + makeStringFromExpr(e2, false);
+            }
+        }
+        Mul(e1, e2): makeStringFromExpr(e1, true) + " * " + makeStringFromExpr(e2, true);
+        Int(i): i2s(i);
+    }
+}
+
+printResult(str : string, expected_value : int) -> int {
+    result = parsic(lingoGrammar(), str, defaultPegActions);
+    
+    println("Test string = \"" + makeStringFromExpr(result, false) + "\"");
+    value: int = calc(result);
+    println("Value = " + i2s(value));
+    println("Expected value = " + i2s(expected_value) + "\n");
+    if (value == expected_value) 1
+    else 0
+}
+
+main() {
+    tests : [Pair<string, int>] = [
+        Pair("1", 1),
+        Pair("1+1+1", 3),
+        Pair("11+11", 22),
+        Pair("(1+((2+3)+4))", 10),
+        Pair("1*2", 2),
+        Pair("5*2+3", 13),
+        Pair("5*(2+3)", 25),
+        Pair("5+((3*3))", 14),
+        Pair("(5+3)*3", 24),
+        Pair("(5+3)*(3+4)", 56),
+        Pair("(5+3)*3+4", 28),
+        Pair("2*((5+3)*3+1)", 50),
+        Pair("1+0", 1),
+        Pair("1*0", 0),
+        Pair("(1+1)*0", 0),
+        Pair("11++", 0),
+        Pair("(3+2))", 0)
+    ];
+
+    res = fold(tests, 0, \acc, pair -> {
+        acc + printResult(pair.first, pair.second);
+    });
+    println("OK: " + i2s(res) + ", failed: " + i2s(length(tests) - res));
+}
