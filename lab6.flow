@@ -69,28 +69,12 @@ specialPegActions = {
     SemanticActions(t);
 }
 
-calcExpr(e: Exp) -> Pair<int, bool> {
+calcExpr(e: Exp) -> int {
     switch(e) {
-        Add(e1, e2): {
-            if (!calcExpr(e1).second || !calcExpr(e1).second) {
-                Pair(0, false);
-            }
-            else {
-                i : int = calcExpr(e1).first + calcExpr(e2).first;
-                Pair(i, true);
-            }
-        }
-        Mul(e1, e2): {
-            if (!calcExpr(e1).second || !calcExpr(e1).second) {
-                Pair(0, false);
-            }
-            else {
-                i : int = calcExpr(e1).first * calcExpr(e2).first;
-                Pair(i, true);
-            }
-        }
-        Int(i): Pair(i, true);
-        Empty() : Pair(0, false);
+        Add(e1, e2): calcExpr(e1) + calcExpr(e2);
+        Mul(e1, e2): calcExpr(e1) * calcExpr(e2);
+        Int(i): i;
+        Empty() : 0;
     }
 }
 
@@ -125,19 +109,17 @@ makeRPN(str : string) -> string {
 }
 
 main() {
-    strRPN : string = "1 2 3 * +";
+    strRPN : string = "1 + 2 3 *";
     expr : Exp = parsic(lingoGrammarRPN, strRPN, specialPegActions);
-
-    result = calcExpr(expr);
-    if (result.second) {
-        value : int = result.first;
+    if (expr == Empty()) {
+        println("ERROR");
+    }
+    else {
+        value = calcExpr(expr);
         println(value);
         strFromExpr : string = makeStringFromExpr(expr, false);
         println("RPNstring: " + strRPN + ", " + "stringExp from RPN: " + strFromExpr);
         RPNstringFromExpString : string = makeRPN(strFromExpr);
         println("stringExp: " + strFromExpr + ", " + "RPNstring from stringExp: " + RPNstringFromExpString);
-    }
-    else {
-        println("ERROR");
     }
 }
