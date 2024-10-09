@@ -1,0 +1,143 @@
+import string;
+import lingo/pegcode/driver;
+
+Exp ::= Add, Mul, Int, Empty;
+Add : (e1 : Exp, e2 : Exp);
+Mul : (e1 : Exp, e2 : Exp);
+Int : (i : int);
+Empty : ();
+
+ExpRPN ::= IntRPN, PlusRPN, AsterRPN;
+IntRPN : (i : int);
+PlusRPN : ();
+AsterRPN : ();
+
+lingoGrammarEpr = compilePegGrammar("#include labs/mygrammar.lingo");
+lingoGrammarRPN = compilePegGrammar("#include labs/grammar6lab.lingo");
+
+check(acc : Pair<int, bool>, token : ExpRPN) -> Pair<int, bool> {
+    switch(token) {
+        IntRPN(i) : Pair(acc.first + 1, acc.second);
+        PlusRPN() :  {
+            if (acc.first < 2) {
+                Pair(0, false);
+            }
+            else {
+                Pair(acc.first - 1, acc.second);
+            }
+        }
+        AsterRPN() : {
+            if (acc.first < 2) {
+                Pair(0, false);
+            }
+            else {
+                Pair(acc.first - 1, acc.second);
+            }
+        }
+    }
+}
+
+createStackExpr(acc : [Exp], token : ExpRPN) -> [Exp] {
+    switch(token) {
+        IntRPN(i) : arrayPush(acc, Int(i));
+        PlusRPN() : {
+            e1 : Exp = acc[length(acc) - 1];
+            e2 : Exp = acc[length(acc) - 2];
+            arrayPush(subrange(acc, 0, length(acc) - 2), Add(e1, e2));
+        };
+        AsterRPN() : {
+            e1 : Exp = acc[length(acc) - 1];
+            e2 : Exp = acc[length(acc) - 2];
+            arrayPush(subrange(acc, 0, length(acc) - 2), Mul(e1, e2));
+        };
+    }
+}
+
+parseTokens(tokens: [flow]) -> Exp {
+    checkVal : Pair<int, bool> = fold(tokens[0], Pair(0, true), check);
+    if (checkVal.first == 1 && checkVal.second) {
+        stackExpr : [Exp] = fold(tokens[0], [], createStackExpr);
+        stackExpr[0];
+    }
+    else {
+        Empty();
+    }
+}
+
+specialPegActions = {
+    t = setTree(defaultPegActions.t, "parseTokens", parseTokens);
+    SemanticActions(t);
+}
+
+calcExpr(e: Exp) -> Pair<int, bool> {
+    switch(e) {
+        Add(e1, e2): {
+            if (!calcExpr(e1).second || !calcExpr(e1).second) {
+                Pair(0, false);
+            }
+            else {
+                i : int = calcExpr(e1).first + calcExpr(e2).first;
+                Pair(i, true);
+            }
+        }
+        Mul(e1, e2): {
+            if (!calcExpr(e1).second || !calcExpr(e1).second) {
+                Pair(0, false);
+            }
+            else {
+                i : int = calcExpr(e1).first * calcExpr(e2).first;
+                Pair(i, true);
+            }
+        }
+        Int(i): Pair(i, true);
+        Empty() : Pair(0, false);
+    }
+}
+
+makeStringFromExpr(e: Exp, wasMul : bool) -> string {
+    switch(e) {
+        Add(e1, e2): {
+            if (wasMul) {
+                "(" + makeStringFromExpr(e1, false) + "+" + makeStringFromExpr(e2, false) + ")";
+            }
+            else {
+                makeStringFromExpr(e1, false) + "+" + makeStringFromExpr(e2, false);
+            }
+        }
+        Mul(e1, e2): makeStringFromExpr(e1, true) + "*" + makeStringFromExpr(e2, true);
+        Int(i): i2s(i);
+        Empty() : "";
+    }
+}
+
+RPNstrFromExp(expr : Exp) -> string {
+    switch (expr) {
+        Add(e1, e2) : RPNstrFromExp(e1) + " " + RPNstrFromExp(e2) + " +";
+        Mul(e1, e2) : RPNstrFromExp(e1) + " " + RPNstrFromExp(e2) + " *";
+        Int(i) : i2s(i);
+        Empty() : "";
+    }
+}
+
+makeRPN(str : string) -> string {
+    expr : Exp = parsic(lingoGrammarEpr, str, defaultPegActions);
+    RPNstrFromExp(expr);
+}
+
+main() {
+    strRPN : string = "1 2 3 * +";
+    expr : Exp = parsic(lingoGrammarRPN, strRPN, specialPegActions);
+
+    result = calcExpr(expr);
+    if (result.second) {
+        value : int = result.first;
+        println(value);
+        strFromExpr : string = makeStringFromExpr(expr, false);
+        println("RPNstring: " + strRPN + ", " + "stringExp from RPN: " + strFromExpr);
+        RPNstringFromExpString : string = makeRPN(strFromExpr);
+        println("stringExp: " + strFromExpr + ", " + "RPNstring from stringExp: " + RPNstringFromExpString);
+    }
+    else {
+        println("ERROR");
+    }
+}
