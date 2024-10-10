@@ -1,0 +1,143 @@
+import string;
+import lingo/pegcode/driver;
+
+Expr ::= Int, Sub, Sum, Mul, Div, Var, MinusVar;
+Int(value : int);
+Sub(l : Expr, r : Expr);
+Sum(l : Expr, r : Expr);
+Div(l : Expr, r : Expr);
+Mul(l : Expr, r : Expr);
+Var(v : string);
+MinusVar(e : Expr);
+
+Rational : (a: int, b: int);
+
+NOD(a : int, b : int) -> int {
+    if (a > 0 && b > 0) {
+        if (a != b) {
+            if (a > b) {
+                NOD(a - b, b);
+            } else {
+                NOD(a, b - a);
+            }
+        }
+        else a;
+    }
+    else 1;
+}
+
+Valid(r : Maybe<Rational>) -> bool {
+    res = either(r, Rational(0,0));
+    res.b != 0;
+}
+
+shortenRetional(r : Maybe<Rational>) -> Maybe<Rational> {
+    if (Valid(r)) {
+        r1 = either(r, Rational(0, 0));
+        nod = NOD(r1.a, r1.b);
+        Some(Rational(r1.a / nod, r1.b / nod));
+    }
+    else {
+        None();
+    }
+}
+
+checkVars(e: Expr, vars : [Pair<string, Rational>]) -> bool {
+    switch(e) {
+        Int(i): true;
+        Var(v) : {
+            index = either(findi(vars, \var -> if (var.first == v) true else false), -1);
+            if (index != -1) {
+                true;
+            }
+            else {
+                false;
+            }
+        }
+        Mul(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Sub(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Sum(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Div(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        MinusVar(e1) : checkVars(e1, vars);
+    }
+}
+
+calcExpr(e: Expr, vars : [Pair<string, Rational>]) -> Maybe<Rational> {
+    switch(e) {
+        Int(i): Some(Rational(i, 1));
+        Var(v) : {
+            index = either(findi(vars, \var -> if (var.first == v) true else false), -1);
+            if (Valid(Some(vars[index].second))) Some(vars[index].second)
+            else None();
+        }
+        Mul(e1, e2): {
+            r1 = either(shortenRetional(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRetional(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRetional(Some(Rational(r1.a * r2.a, r1.b * r2.b)));
+            if (Valid(r)) r
+            else None();
+        }
+        Sub(e1, e2): {
+            r1 = either(shortenRetional(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRetional(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRetional(Some(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b)));
+            if (Valid(r)) r
+            else None();
+        }
+        Sum(e1, e2): {
+            r1 = either(shortenRetional(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRetional(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRetional(Some(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b)));
+            if (Valid(r)) r
+            else None();
+        }
+        Div(e1, e2): {
+            r1 = either(shortenRetional(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRetional(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRetional(Some(Rational(r1.a * r2.b, r1.b * r2.a)));
+            if (Valid(r)) r
+            else None();
+        }
+        MinusVar(e1) : {
+            r1 = either(calcExpr(e1, vars), Rational(0, 0));
+            if (Valid(Some(r1))) Some(Rational(-1 * r1.a, r1.b))
+            else None();
+        }
+    }
+}
+
+lingoGrammar = compilePegGrammar("#include labs/grammar7lab.lingo");
+
+buildSub(xs : [flow]) {
+	fold(xs[1], xs[0], \acc, x -> Sub(acc, x));
+}
+
+buildDiv(xs : [flow]) {
+	fold(xs[1], xs[0], \acc, x -> Div(acc, x));
+}
+
+specialPegActions = {
+	t = setTree(defaultPegActions.t, "buildDiv", buildDiv);
+    res_t = setTree(t, "buildSub", buildSub);
+	SemanticActions(res_t);
+}
+
+main() {
+    // s : string = "(2*7)-2-(3*2)+(6*7)+7-5";
+    // s : string = "2/2+(12-2)/2-3";
+    vars : [Pair<string, Rational>] = [Pair("a", Rational(10, 1)), Pair("b", Rational(6, 1))];
+    // s : string = "-a+-(12-2)+b/-2-3";
+    // s : string = "2/6";
+    // s : string = "2/6 + 2/6 + 1/3";
+    s : string = "12/6 + (1+8)/1 + (6*7)/(10-10)";
+    e = parsic(lingoGrammar, s, specialPegActions);
+    if (checkVars(e, vars)) {
+        val = either(calcExpr(e, vars), Rational(0, 0));
+        if (val.b == 0) println("error div 0")
+        else println("val = " + i2s(val.a) + "/" + i2s(val.b));
+    }
+    else {
+        println("unknown vars");
+    }
+    
+}
