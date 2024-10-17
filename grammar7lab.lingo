@@ -1,0 +1,21 @@
+exp = ws sum;
+
+sum = sub:e1 '+' ws sum:e2 ws { debug(Sum(:e1, :e2)) } | sub:e ws { debug(:e) };
+
+sub = mul:h ('-' ws mul:r ws { :r })*:tail { buildSub(:h, :tail) };
+
+mul = ws div:e1 ws '*' ws mul:e2 ws { Mul(:e1, :e2) } | div:e { :e };
+
+div = factor:h ws ('/' ws factor:r ws { :r })*:tail { buildDiv(:h, :tail) };
+
+factor = neg | var | int | '(' exp:e1 ')' { :e1 };
+neg = '-' exp:e { MinusVar(:e) };
+
+int = digit+$d { Int(s2i($d)) };
+digit = '0'-'9';
+
+var = symbol+$v { Var($v) };
+symbol = 'a'-'z' | 'A'-'Z';
+
+ws = s*;
+s = " " | "\t" | "\n";

@@ -1,0 +1,266 @@
+import string;
+import lingo/pegcode/driver;
+
+Expr ::= Int, Sub, Sum, Mul, Div, Var, MinusVar, Invalid;
+Int(value : int);
+Sub(l : Expr, r : Expr);
+Sum(l : Expr, r : Expr);
+Div(l : Expr, r : Expr);
+Mul(l : Expr, r : Expr);
+Var(v : string);
+MinusVar(e : Expr);
+Invalid();
+
+Rational : (a: int, b: int);
+
+makeRational(a:int, b:int) -> Expr {
+    Div(Int(a), Int(b));
+}
+
+NOD(a : int, b : int) -> int {
+    if (a > 0 && b > 0) {
+        if (a != b) {
+            if (a > b) {
+                NOD(a - b, b);
+            } else {
+                NOD(a, b - a);
+            }
+        }
+        else a;
+    }
+    else 1;
+}
+
+isZero(r : Rational) -> bool {
+    if (r.a == 0 && r.b == 1) true
+    else false
+}
+
+isOne(r : Rational) -> bool {
+    if (r.a == 1 && r.b == 1) true
+    else false
+}
+
+isNeg(e1 : Expr, e2 : Expr) {
+    if (e1 == MinusVar(e2) || e2 == MinusVar(e1)) true
+    else false
+}
+
+Valid(r : Maybe<Rational>) -> bool {
+    res = either(r, Rational(0,0));
+    res.b != 0;
+}
+
+shortenRational(r : Maybe<Rational>) -> Maybe<Rational> {
+    if (Valid(r)) {
+        r1 = either(r, Rational(0, 0));
+        nod = NOD(r1.a, r1.b);
+        Some(Rational(r1.a / nod, r1.b / nod));
+    }
+    else {
+        None();
+    }
+}
+
+checkVars(e: Expr, vars : [Pair<string, Rational>]) -> bool {
+    switch(e) {
+        Int(i): true;
+        Var(v): {
+            index = either(findi(vars, \var -> if (var.first == v) true else false), -1);
+            if (index != -1) {
+                true;
+            }
+            else {
+                false;
+            }
+        }
+        Mul(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Sub(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Sum(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Div(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        MinusVar(e1): checkVars(e1, vars);
+        Invalid(): false;
+    }
+}
+
+simplificationMul(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(shortenRational(calcExpr(e1, [])), Rational(0, 0));
+    r2 = either(shortenRational(calcExpr(e2, [])), Rational(0, 0));
+    if (Valid(Some(r1)) && Valid(Some(r2))) {
+        r = either(shortenRational(Some(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b))), Rational(0, 0));
+        if (Valid(Some(r))) makeRational(r.a, r.b)
+        else Invalid();
+    }
+    else if (isZero(r1) || isZero(r2)) {
+        Int(0);
+    }
+    else if (isOne(r1)) {
+        e2;
+    }
+    else if (isOne(r2)) {
+        e1;
+    }
+    else {
+        Mul(e1, e2);
+    }
+}
+
+simplificationDiv(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(shortenRational(calcExpr(e1, [])), Rational(0, 0));
+    r2 = either(shortenRational(calcExpr(e2, [])), Rational(0, 0));
+    if (Valid(Some(r1)) && Valid(Some(r2))) {
+        r = either(shortenRational(Some(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b))), Rational(0, 0));
+        if (Valid(Some(r))) makeRational(r.a, r.b)
+        else Invalid();
+    }
+    else if (isZero(r2)) {
+        Invalid();
+    }
+    else if (isZero(r1)) {
+        Int(0);
+    }
+    else if (isOne(r2)) {
+        e1;
+    }
+    else {
+        Div(e1, e2);
+    }
+}
+
+simplificationSub(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(shortenRational(calcExpr(e1, [])), Rational(0, 0));
+    r2 = either(shortenRational(calcExpr(e2, [])), Rational(0, 0));
+    if (Valid(Some(r1)) && Valid(Some(r2))) {
+        r = either(shortenRational(Some(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b))), Rational(0, 0));
+        if (Valid(Some(r))) makeRational(r.a, r.b)
+        else Invalid();
+    }
+    else if (isZero(r1)) {
+        MinusVar(e2);
+    }
+    else if (isZero(r2)) {
+        e1;
+    }
+    else if (e1 == e2) {
+        Int(0);
+    }
+    else {
+        Sub(e1, e2);
+    }
+}
+
+simplificationSum(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(shortenRational(calcExpr(e1, [])), Rational(0, 0));
+    r2 = either(shortenRational(calcExpr(e2, [])), Rational(0, 0));
+    if (Valid(Some(r1)) && Valid(Some(r2))) {
+        r = either(shortenRational(Some(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b))), Rational(0, 0));
+        if (Valid(Some(r))) makeRational(r.a, r.b)
+        else Invalid();
+    }
+    else if (isZero(r1)) {
+        e2;
+    }
+    else if (isZero(r2)) {
+        e1;
+    }
+    else if (isNeg(e1, e2)) {
+        Int(0);
+    }
+    else {
+        Sum(e1, e2);
+    }
+}
+
+calcExpr(e: Expr, vars : [Pair<string, Rational>]) -> Maybe<Rational> {
+    switch(e) {
+        Int(i): Some(Rational(i, 1));
+        Var(v) : {
+            index = either(findi(vars, \var -> if (var.first == v) true else false), -1);
+            if (index != -1 && Valid(Some(vars[index].second))) Some(vars[index].second)
+            else None();
+        }
+        Mul(e1, e2): {
+            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRational(Some(Rational(r1.a * r2.a, r1.b * r2.b)));
+            if (Valid(r)) r
+            else None();
+        }
+        Sub(e1, e2): {
+            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRational(Some(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b)));
+            if (Valid(r)) r
+            else None();
+        }
+        Sum(e1, e2): {
+            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRational(Some(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b)));
+            if (Valid(r)) r
+            else None();
+        }
+        Div(e1, e2): {
+            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRational(Some(Rational(r1.a * r2.b, r1.b * r2.a)));
+            if (Valid(r)) r
+            else None();
+        }
+        MinusVar(e1): {
+            r1 = either(calcExpr(e1, vars), Rational(0, 0));
+            if (Valid(Some(r1))) Some(Rational(-1 * r1.a, r1.b))
+            else None();
+        }
+        Invalid(): None();
+    }
+}
+
+lingoGrammar = compilePegGrammar("#include labs/grammar7lab.lingo");
+
+buildSub(xs : [flow]) {
+	fold(xs[1], xs[0], \acc, x -> Sub(acc, x));
+}
+
+buildDiv(xs : [flow]) {
+	fold(xs[1], xs[0], \acc, x -> Div(acc, x));
+}
+
+specialPegActions = {
+	t = setTree(defaultPegActions.t, "buildDiv", buildDiv);
+    res_t = setTree(t, "buildSub", buildSub);
+	SemanticActions(res_t);
+}
+
+derive(e : Expr, v : string) -> Expr {
+    switch(e) {
+        Int(i): Int(0);
+        Var(var): if (var == v) Int(1) else Int(0);
+        MinusVar(e1): MinusVar(derive(e1, v));
+        Sub(e1, e2): simplificationSub(derive(e1, v), derive(e2, v));
+        Sum(e1, e2): simplificationSum(derive(e1, v), derive(e2, v));
+        Div(e1, e2): simplificationDiv(simplificationSub(simplificationMul(derive(e1, v), e2), simplificationMul(e1, derive(e1, v))), simplificationMul(e2, e2));
+        Mul(e1, e2): simplificationSum(simplificationMul(derive(e1, v), e2), simplificationMul(e1, derive(e1, v)));
+        Invalid(): Invalid();
+    }    
+}
+
+main() {
+
+    s : string = " x * x + (x-1)/(x+1) - (z - y) ";
+
+    e1 : Expr = parsic(lingoGrammar, s, specialPegActions);
+
+    e = derive(e1, "x");
+
+    vars : [Pair<string, Rational>] = [Pair("a", Rational(10, 1)), Pair("x", Rational(1, 1))];
+
+    if (checkVars(e, vars)) {
+        val = either(calcExpr(e, vars), Rational(0, 0));
+        if (val.b == 0) println("error div 0")
+        else println("val = " + i2s(val.a) + "/" + i2s(val.b));
+    }
+    else {
+        println("unknown vars");
+    }   
+}
