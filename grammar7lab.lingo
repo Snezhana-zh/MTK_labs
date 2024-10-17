@@ -1,19 +1,19 @@
-exp = sum;
+exp = ws sum;
 
-sum = ws sub:e1 ws '+' ws sum:e2 ws { debug(Sum(:e1, :e2)) } | ws sub:e ws { debug(:e) };
+sum = sub:e1 '+' ws sum:e2 ws { debug(Sum(:e1, :e2)) } | sub:e ws { debug(:e) };
 
-sub = ws (div | mul):h ws ('-' ws (div | mul):r ws { :r })*:tail { buildSub(:h, :tail) };
+sub = mul:h ('-' ws mul:r ws { :r })*:tail { buildSub(:h, :tail) };
 
-div = ws mul:h ws ('/' ws mul:r ws { :r })*:tail { buildDiv(:h, :tail) };
+mul = ws div:e1 ws '*' ws mul:e2 ws { Mul(:e1, :e2) } | div:e { :e };
 
-mul = ws factor:e1 ws '*' ws mul:e2 ws { Mul(:e1, :e2) } | factor:e { :e };
+div = factor:h ws ('/' ws factor:r ws { :r })*:tail { buildDiv(:h, :tail) };
 
-factor = (minus_int | minus_var):e { :e } | '-' '(' exp:e1 ')' { MinusVar(:e1) } | '(' exp:e1 ')' { :e1 };
-minus_int = '-' int:i { MinusVar(:i) } | int:i { :i };
+factor = neg | var | int | '(' exp:e1 ')' { :e1 };
+neg = '-' exp:e { MinusVar(:e) };
+
 int = digit+$d { Int(s2i($d)) };
 digit = '0'-'9';
 
-minus_var = '-' var:v { MinusVar(:v) } | var:v { :v };
 var = symbol+$v { Var($v) };
 symbol = 'a'-'z' | 'A'-'Z';
 

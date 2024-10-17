@@ -31,7 +31,7 @@ Valid(r : Maybe<Rational>) -> bool {
     res.b != 0;
 }
 
-shortenRetional(r : Maybe<Rational>) -> Maybe<Rational> {
+shortenRational(r : Maybe<Rational>) -> Maybe<Rational> {
     if (Valid(r)) {
         r1 = either(r, Rational(0, 0));
         nod = NOD(r1.a, r1.b);
@@ -71,30 +71,30 @@ calcExpr(e: Expr, vars : [Pair<string, Rational>]) -> Maybe<Rational> {
             else None();
         }
         Mul(e1, e2): {
-            r1 = either(shortenRetional(calcExpr(e1, vars)), Rational(0, 0));
-            r2 = either(shortenRetional(calcExpr(e2, vars)), Rational(0, 0));
-            r = shortenRetional(Some(Rational(r1.a * r2.a, r1.b * r2.b)));
+            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRational(Some(Rational(r1.a * r2.a, r1.b * r2.b)));
             if (Valid(r)) r
             else None();
         }
         Sub(e1, e2): {
-            r1 = either(shortenRetional(calcExpr(e1, vars)), Rational(0, 0));
-            r2 = either(shortenRetional(calcExpr(e2, vars)), Rational(0, 0));
-            r = shortenRetional(Some(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b)));
+            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRational(Some(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b)));
             if (Valid(r)) r
             else None();
         }
         Sum(e1, e2): {
-            r1 = either(shortenRetional(calcExpr(e1, vars)), Rational(0, 0));
-            r2 = either(shortenRetional(calcExpr(e2, vars)), Rational(0, 0));
-            r = shortenRetional(Some(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b)));
+            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRational(Some(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b)));
             if (Valid(r)) r
             else None();
         }
         Div(e1, e2): {
-            r1 = either(shortenRetional(calcExpr(e1, vars)), Rational(0, 0));
-            r2 = either(shortenRetional(calcExpr(e2, vars)), Rational(0, 0));
-            r = shortenRetional(Some(Rational(r1.a * r2.b, r1.b * r2.a)));
+            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
+            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
+            r = shortenRational(Some(Rational(r1.a * r2.b, r1.b * r2.a)));
             if (Valid(r)) r
             else None();
         }
@@ -123,13 +123,8 @@ specialPegActions = {
 }
 
 main() {
-    // s : string = "(2*7)-2-(3*2)+(6*7)+7-5";
-    // s : string = "2/2+(12-2)/2-3";
     vars : [Pair<string, Rational>] = [Pair("a", Rational(10, 1)), Pair("b", Rational(6, 1))];
-    // s : string = "-a+-(12-2)+b/-2-3";
-    // s : string = "2/6";
-    // s : string = "2/6 + 2/6 + 1/3";
-    s : string = "12/6 + (1+8)/1 + (6*7)/(10-10)";
+    s : string = " 12 / 6 + (1 - 8) / 1 + ( 6 * 7 ) ";
     e = parsic(lingoGrammar, s, specialPegActions);
     if (checkVars(e, vars)) {
         val = either(calcExpr(e, vars), Rational(0, 0));
