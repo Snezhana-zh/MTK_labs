@@ -1,0 +1,313 @@
+import string;
+import lingo/pegcode/driver;
+
+Expr ::= Int, Sub, Sum, Mul, Div, Var, MinusVar;
+Int(value : int);
+Sub(l : Expr, r : Expr);
+Sum(l : Expr, r : Expr);
+Div(l : Expr, r : Expr);
+Mul(l : Expr, r : Expr);
+Var(v : string);
+MinusVar(e : Expr);
+
+Rational : (a: int, b: int);
+
+Fraction : (p1: Expr, p2: Expr);
+
+makeRationalExpr(a:int, b:int) -> Expr {
+    if (b == 1) {
+        Int(a);
+    }
+    else {
+        Div(Int(a), Int(b));
+    }
+}
+
+NOD(a : int, b : int) -> int {
+    if (a > 0 && b > 0) {
+        if (a != b) {
+            if (a > b) {
+                NOD(a - b, b);
+            } else {
+                NOD(a, b - a);
+            }
+        }
+        else a;
+    }
+    else 1;
+}
+
+isZero(r1 : Rational) -> bool {
+    if (r1.b != 0 && r1.a == 0) true
+    else false
+}
+
+isOne(r1 : Rational) -> bool {
+    if (r1.b != 0 && r1.a == r1.b) true
+    else false
+}
+
+isNeg(e1 : Expr, e2 : Expr) {
+    if (e1 == MinusVar(e2) || e2 == MinusVar(e1)) true
+    else false
+}
+
+Valid(r : Rational) -> bool {
+    r.b != 0;
+}
+
+shortenRational(r : Rational) -> Rational {
+    nod = NOD(r.a, r.b);
+    Rational(r.a / nod, r.b / nod);
+}
+
+checkVars(e: Expr, vars : [Pair<string, Rational>]) -> bool {
+    switch(e) {
+        Int(i): true;
+        Var(v) : {
+            index = either(findi(vars, \var -> if (var.first == v) true else false), -1);
+            if (index != -1) {
+                true;
+            }
+            else {
+                false;
+            }
+        }
+        Mul(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Sub(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Sum(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Div(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        MinusVar(e1) : checkVars(e1, vars);
+    }
+}
+
+mulRat(r1: Rational, r2: Rational) -> Rational {
+    shortenRational(Rational(r1.a * r2.a, r1.b * r2.b));
+}
+
+divRat(r1: Rational, r2: Rational) -> Maybe<Rational> {
+    r = shortenRational(Rational(r1.a * r2.b, r1.b * r2.a));
+    if (Valid(r)) Some(r)
+    else None();
+}
+
+subRat(r1: Rational, r2: Rational) -> Rational {
+    shortenRational(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b));
+}
+
+sumRat(r1: Rational, r2: Rational) -> Rational {
+    shortenRational(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b));
+}
+
+negRat(r1: Rational) -> Rational {
+    Rational(-1 * r1.a, r1.b);
+}
+
+calcExpr(e: Expr, vars : [Pair<string, Rational>]) -> Maybe<Rational> {
+    switch(e) {
+        Int(i): Some(Rational(i, 1));
+        Var(v) : {
+            index = either(findi(vars, \var -> if (var.first == v) true else false), -1);
+            if (index != -1 && Valid(vars[index].second)) Some(vars[index].second)
+            else None();
+        }
+        Mul(e1, e2): {
+            maybeMap2(mulRat)(calcExpr(e1, vars), calcExpr(e2, vars));
+        }
+        Sub(e1, e2): {
+            maybeMap2(subRat)(calcExpr(e1, vars), calcExpr(e2, vars));
+        }
+        Sum(e1, e2): {
+            maybeMap2(sumRat)(calcExpr(e1, vars), calcExpr(e2, vars));
+        }
+        Div(e1, e2): {
+            maybeBind2(divRat)(calcExpr(e1, vars), calcExpr(e2, vars));
+        }
+        MinusVar(e1) : {
+            maybeMap(calcExpr(e1, vars), negRat);
+        }
+    }
+}
+
+simplificationMul(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(calcExpr(e1, []), Rational(0, 0));
+    r2 = either(calcExpr(e2, []), Rational(0, 0));
+    if (Valid(r1) && Valid(r2)) {
+        r = shortenRational(Rational(r1.a * r2.a, r1.b * r2.b));
+        makeRationalExpr(r.a, r.b);
+    }
+    else if (isZero(r1) || isZero(r2)) {
+        Int(0);
+    }
+    else if (isOne(r1)) {
+        e2;
+    }
+    else if (isOne(r2)) {
+        e1;
+    }
+    else {
+        Mul(e1, e2);
+    }
+}
+
+simplificationDiv(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(calcExpr(e1, []), Rational(0, 0));
+    r2 = either(calcExpr(e2, []), Rational(0, 0));
+    if (Valid(r1) && Valid(r2)) {
+        r = shortenRational(Rational(r1.a * r2.b, r1.b * r2.a));
+        makeRationalExpr(r.a, r.b);
+    }
+    else if (isZero(r1)) {
+        Int(0);
+    }
+    else if (isOne(r2)) {
+        e1;
+    }
+    else {
+        Div(e1, e2);
+    }
+}
+
+simplificationSub(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(calcExpr(e1, []), Rational(0, 0));
+    r2 = either(calcExpr(e2, []), Rational(0, 0));
+    if (Valid(r1) && Valid(r2)) {
+        r = shortenRational(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b));
+        makeRationalExpr(r.a, r.b);
+    }
+    else if (isZero(r1)) {
+        MinusVar(e2);
+    }
+    else if (isZero(r2)) {
+        e1;
+    }
+    else if (e1 == e2) {
+        Int(0);
+    }
+    else {
+        Sub(e1, e2);
+    }
+}
+
+simplificationSum(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(calcExpr(e1, []), Rational(0, 0));
+    r2 = either(calcExpr(e2, []), Rational(0, 0));
+    if (Valid(r1) && Valid(r2)) {
+        r = shortenRational(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b));
+        makeRationalExpr(r.a, r.b);
+    }
+    else if (isZero(r1)) {
+        e2;
+    }
+    else if (isZero(r2)) {
+        e1;
+    }
+    else if (isNeg(e1, e2)) {
+        Int(0);
+    }
+    else {
+        Sum(e1, e2);
+    }
+}
+
+lingoGrammar = compilePegGrammar("#include labs/grammar7lab.lingo");
+
+buildSub(xs : [flow]) {
+	fold(xs[1], xs[0], \acc, x -> Sub(acc, x));
+}
+
+buildDiv(xs : [flow]) {
+	fold(xs[1], xs[0], \acc, x -> Div(acc, x));
+}
+
+specialPegActions = {
+	t = setTree(defaultPegActions.t, "buildDiv", buildDiv);
+    res_t = setTree(t, "buildSub", buildSub);
+	SemanticActions(res_t);
+}
+
+derive(e : Expr, v : string) -> Expr {
+    switch(e) {
+        Int(i): Int(0);
+
+        Var(var): if (var == v) Int(1) else Int(0);
+
+        MinusVar(e1): MinusVar(derive(e1, v));
+
+        Sub(e1, e2): simplificationSub(derive(e1, v), derive(e2, v));
+
+        Sum(e1, e2): simplificationSum(derive(e1, v), derive(e2, v));
+
+        Div(e1, e2): simplificationDiv(simplificationSub(simplificationMul(derive(e1, v), e2), 
+                                        simplificationMul(e1, derive(e2, v))), simplificationMul(e2, e2));
+
+        Mul(e1, e2): simplificationSum(simplificationMul(derive(e1, v), e2), simplificationMul(e1, derive(e2, v)));
+    }    
+}
+
+toStr(e: Expr) -> string {
+    switch(e) {
+        Int(i): i2s(i);
+        Var(name): name;
+        MinusVar(e1): "-" + toStr(e1);
+        Sub(e1, e2): toStr(e1) + " - " + toStr(e2);
+        Sum(e1, e2): toStr(e1) + " + " + toStr(e2);
+        Div(e1, e2): toStr(e1) + " / " + toStr(e2);
+        Mul(e1, e2): "(" + toStr(e1) + " * " + toStr(e2) + ")"
+    }
+}
+
+toFraction(e: Expr) -> Fraction {
+    switch(e) {
+        Sub(e1, e2): {
+            f1 = toFraction(e1);
+            f2 = toFraction(e2);
+            Fraction(simplificationSub(simplificationMul(f1.p1, f2.p2), simplificationMul(f2.p1, f1.p2)), 
+                                    simplificationMul(f1.p2, f2.p2));
+        }
+        Sum(e1, e2): {
+            f1 = toFraction(e1);
+            f2 = toFraction(e2);
+            Fraction(simplificationSum(simplificationMul(f1.p1, f2.p2), simplificationMul(f2.p1, f1.p2)), 
+                                    simplificationMul(f1.p2, f2.p2));
+        }
+        Div(e1, e2): {
+            f1 = toFraction(e1);
+            f2 = toFraction(e2);
+            Fraction(simplificationMul(f1.p1, f2.p2), simplificationMul(f1.p2, f2.p1));
+        }
+        Mul(e1, e2): {
+            f1 = toFraction(e1);
+            f2 = toFraction(e2);
+            Fraction(simplificationMul(f1.p1, f2.p1), simplificationMul(f1.p2, f2.p2));
+        }
+
+        default : Fraction(e, Int(1));
+    }
+}
+
+toFractionStr(f : Fraction) -> string {
+    "(" + toStr(f.p1) + ") / (" + toStr(f.p2) + ")";
+}
+
+main() {
+
+    s : string = " x * (x + 1) / (x - 2) ";
+
+    e : Expr = parsic(lingoGrammar, s, specialPegActions);
+
+    println(toFractionStr(toFraction(e)));
+
+    vars : [Pair<string, Rational>] = [Pair("a", Rational(10, 1)), Pair("x", Rational(2, 1))];
+
+    if (checkVars(e, vars)) {
+        val = calcExpr(e, vars);
+        switch(calcExpr(e, vars)) {
+            None() : println("ERROR DIV 0");
+            Some(r) : println("result = " + i2s(r.a) + "/" + i2s(r.b));
+        }
+    }
+    else {
+        println("unknown vars");
+    }   
+}
