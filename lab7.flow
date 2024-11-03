@@ -26,20 +26,13 @@ NOD(a : int, b : int) -> int {
     else 1;
 }
 
-Valid(r : Maybe<Rational>) -> bool {
-    res = either(r, Rational(0,0));
-    res.b != 0;
+Valid(r : Rational) -> bool {
+    r.b != 0;
 }
 
-shortenRational(r : Maybe<Rational>) -> Maybe<Rational> {
-    if (Valid(r)) {
-        r1 = either(r, Rational(0, 0));
-        nod = NOD(r1.a, r1.b);
-        Some(Rational(r1.a / nod, r1.b / nod));
-    }
-    else {
-        None();
-    }
+shortenRational(r : Rational) -> Rational {
+    nod = NOD(r.a, r.b);
+    Rational(r.a / nod, r.b / nod);
 }
 
 checkVars(e: Expr, vars : [Pair<string, Rational>]) -> bool {
@@ -62,46 +55,50 @@ checkVars(e: Expr, vars : [Pair<string, Rational>]) -> bool {
     }
 }
 
+mulRat(r1: Rational, r2: Rational) -> Rational {
+    shortenRational(Rational(r1.a * r2.a, r1.b * r2.b));
+}
+
+divRat(r1: Rational, r2: Rational) -> Maybe<Rational> {
+    r = shortenRational(Rational(r1.a * r2.b, r1.b * r2.a));
+    if (Valid(r)) Some(r)
+    else None();
+}
+
+subRat(r1: Rational, r2: Rational) -> Rational {
+    shortenRational(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b));
+}
+
+sumRat(r1: Rational, r2: Rational) -> Rational {
+    shortenRational(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b));
+}
+
+negRat(r1: Rational) -> Rational {
+    Rational(-1 * r1.a, r1.b);
+}
+
 calcExpr(e: Expr, vars : [Pair<string, Rational>]) -> Maybe<Rational> {
     switch(e) {
         Int(i): Some(Rational(i, 1));
         Var(v) : {
             index = either(findi(vars, \var -> if (var.first == v) true else false), -1);
-            if (Valid(Some(vars[index].second))) Some(vars[index].second)
+            if (index != -1 && Valid(vars[index].second)) Some(vars[index].second)
             else None();
         }
         Mul(e1, e2): {
-            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
-            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
-            r = shortenRational(Some(Rational(r1.a * r2.a, r1.b * r2.b)));
-            if (Valid(r)) r
-            else None();
+            maybeMap2(mulRat)(calcExpr(e1, vars), calcExpr(e2, vars));
         }
         Sub(e1, e2): {
-            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
-            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
-            r = shortenRational(Some(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b)));
-            if (Valid(r)) r
-            else None();
+            maybeMap2(subRat)(calcExpr(e1, vars), calcExpr(e2, vars));
         }
         Sum(e1, e2): {
-            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
-            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
-            r = shortenRational(Some(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b)));
-            if (Valid(r)) r
-            else None();
+            maybeMap2(sumRat)(calcExpr(e1, vars), calcExpr(e2, vars));
         }
         Div(e1, e2): {
-            r1 = either(shortenRational(calcExpr(e1, vars)), Rational(0, 0));
-            r2 = either(shortenRational(calcExpr(e2, vars)), Rational(0, 0));
-            r = shortenRational(Some(Rational(r1.a * r2.b, r1.b * r2.a)));
-            if (Valid(r)) r
-            else None();
+            maybeBind2(divRat)(calcExpr(e1, vars), calcExpr(e2, vars));
         }
         MinusVar(e1) : {
-            r1 = either(calcExpr(e1, vars), Rational(0, 0));
-            if (Valid(Some(r1))) Some(Rational(-1 * r1.a, r1.b))
-            else None();
+            maybeMap(calcExpr(e1, vars), negRat);
         }
     }
 }
@@ -124,12 +121,14 @@ specialPegActions = {
 
 main() {
     vars : [Pair<string, Rational>] = [Pair("a", Rational(10, 1)), Pair("b", Rational(6, 1))];
-    s : string = " 12 / 6 + (1 - 8) / 1 + ( 6 * 7 ) ";
+    s : string = " 12 / 6 + (1 - 7) / 3 + ( a * 7 ) ";
     e = parsic(lingoGrammar, s, specialPegActions);
     if (checkVars(e, vars)) {
-        val = either(calcExpr(e, vars), Rational(0, 0));
-        if (val.b == 0) println("error div 0")
-        else println("val = " + i2s(val.a) + "/" + i2s(val.b));
+        val = calcExpr(e, vars);
+        switch(calcExpr(e, vars)) {
+            None() : println("ERROR DIV 0");
+            Some(r) : println("result = " + i2s(r.a) + "/" + i2s(r.b));
+        }
     }
     else {
         println("unknown vars");
