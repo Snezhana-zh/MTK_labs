@@ -1,0 +1,98 @@
+import string;
+import lingo/pegcode/driver;
+import parse;
+
+export {
+
+NOD(a : int, b : int) -> int {
+    if (a > 0 && b > 0) {
+        if (a != b) {
+            if (a > b) {
+                NOD(a - b, b);
+            } else {
+                NOD(a, b - a);
+            }
+        }
+        else a;
+    }
+    else 1;
+}
+
+Valid(r : Rational) -> bool {
+    r.b != 0;
+}
+
+shortenRational(r : Rational) -> Rational {
+    nod = NOD(r.a, r.b);
+    Rational(r.a / nod, r.b / nod);
+}
+
+checkVars(e: Expr, vars : [Pair<string, Rational>]) -> bool {
+    switch(e) {
+        Int(i): true;
+        Var(v) : {
+            index = either(findi(vars, \var -> if (var.first == v) true else false), -1);
+            if (index != -1) {
+                true;
+            }
+            else {
+                false;
+            }
+        }
+        Mul(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Sub(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Sum(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        Div(e1, e2): checkVars(e1, vars) && checkVars(e2, vars);
+        MinusVar(e1) : checkVars(e1, vars);
+    }
+}
+
+mulRat(r1: Rational, r2: Rational) -> Rational {
+    shortenRational(Rational(r1.a * r2.a, r1.b * r2.b));
+}
+
+divRat(r1: Rational, r2: Rational) -> Maybe<Rational> {
+    r = shortenRational(Rational(r1.a * r2.b, r1.b * r2.a));
+    if (Valid(r)) Some(r)
+    else None();
+}
+
+subRat(r1: Rational, r2: Rational) -> Rational {
+    shortenRational(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b));
+}
+
+sumRat(r1: Rational, r2: Rational) -> Rational {
+    shortenRational(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b));
+}
+
+negRat(r1: Rational) -> Rational {
+    Rational(-1 * r1.a, r1.b);
+}
+
+calcExpr(e: Expr, vars : [Pair<string, Rational>]) -> Maybe<Rational> {
+    switch(e) {
+        Int(i): Some(Rational(i, 1));
+        Var(v) : {
+            index = either(findi(vars, \var -> if (var.first == v) true else false), -1);
+            if (index != -1 && Valid(vars[index].second)) Some(vars[index].second)
+            else None();
+        }
+        Mul(e1, e2): {
+            maybeMap2(mulRat)(calcExpr(e1, vars), calcExpr(e2, vars));
+        }
+        Sub(e1, e2): {
+            maybeMap2(subRat)(calcExpr(e1, vars), calcExpr(e2, vars));
+        }
+        Sum(e1, e2): {
+            maybeMap2(sumRat)(calcExpr(e1, vars), calcExpr(e2, vars));
+        }
+        Div(e1, e2): {
+            maybeBind2(divRat)(calcExpr(e1, vars), calcExpr(e2, vars));
+        }
+        MinusVar(e1) : {
+            maybeMap(calcExpr(e1, vars), negRat);
+        }
+    }
+}
+
+}

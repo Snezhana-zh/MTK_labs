@@ -1,0 +1,22 @@
+import simplification;
+
+export {
+derive(e : Expr, v : string) -> Expr {
+    switch(e) {
+        Int(i): Int(0);
+
+        Var(var): if (var == v) Int(1) else Int(0);
+
+        MinusVar(e1): MinusVar(derive(e1, v));
+
+        Sub(e1, e2): simplificationSub(derive(e1, v), derive(e2, v));
+
+        Sum(e1, e2): simplificationSum(derive(e1, v), derive(e2, v));
+
+        Div(e1, e2): simplificationDiv(simplificationSub(simplificationMul(derive(e1, v), e2), 
+                                        simplificationMul(e1, derive(e2, v))), simplificationMul(e2, e2));
+
+        Mul(e1, e2): simplificationSum(simplificationMul(derive(e1, v), e2), simplificationMul(e1, derive(e2, v)));
+    }    
+}
+}

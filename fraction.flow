@@ -1,0 +1,38 @@
+import parse;
+import simplification;
+import toStringMethods;
+
+export {
+toFraction(e: Expr) -> Fraction {
+    switch(e) {
+        Sub(e1, e2): {
+            f1 = toFraction(e1);
+            f2 = toFraction(e2);
+            Fraction(simplificationSub(simplificationMul(f1.p1, f2.p2), simplificationMul(f2.p1, f1.p2)), 
+                                    simplificationMul(f1.p2, f2.p2));
+        }
+        Sum(e1, e2): {
+            f1 = toFraction(e1);
+            f2 = toFraction(e2);
+            Fraction(simplificationSum(simplificationMul(f1.p1, f2.p2), simplificationMul(f2.p1, f1.p2)), 
+                                    simplificationMul(f1.p2, f2.p2));
+        }
+        Div(e1, e2): {
+            f1 = toFraction(e1);
+            f2 = toFraction(e2);
+            Fraction(simplificationMul(f1.p1, f2.p2), simplificationMul(f1.p2, f2.p1));
+        }
+        Mul(e1, e2): {
+            f1 = toFraction(e1);
+            f2 = toFraction(e2);
+            Fraction(simplificationMul(f1.p1, f2.p1), simplificationMul(f1.p2, f2.p2));
+        }
+
+        default : Fraction(e, Int(1));
+    }
+}
+
+toFractionStr(f : Fraction) -> string {
+    "(" + toStr(f.p1) + ") / (" + toStr(f.p2) + ")";
+}
+}

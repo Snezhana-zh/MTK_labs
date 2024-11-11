@@ -1,0 +1,242 @@
+import parse;
+import toStringMethods;
+
+export {
+
+    Identity : (in : Expr, out : Expr);
+
+    getSmallestForm(e : Expr, identites : Set<Identity>) -> Expr {    
+        arraySimplifiedForms = getSimplifiedForms(e, identites);
+
+        println("START");
+        fori(0, length(arraySimplifiedForms) - 1, \i -> println(toStr(arraySimplifiedForms[i])));
+        println("END");
+
+        arraySimplifiedForms[length(arraySimplifiedForms) - 1];
+    }
+
+}
+
+ExpArray : (array : [Expr], smallestSize : int);
+
+getSize(e: Expr) -> int {
+    switch(e) {
+        Mul(e1, e2): getSize(e1) + getSize(e2) + 1;
+        Sub(e1, e2): getSize(e1) + getSize(e2) + 1;
+        Sum(e1, e2): getSize(e1) + getSize(e2) + 1;
+        Div(e1, e2): getSize(e1) + getSize(e2) + 1;
+        MinusVar(e1) : getSize(e1) + 1;
+        default: 1;
+    }
+}
+
+findVar(var : string, arr: [Pair<string, Expr>]) -> Maybe<Expr> {
+    if (length(arr) > 0 && arr[0].first != var) {
+        findVar(var, tail(arr));
+    }
+    else if (length(arr) > 0) {
+        Some(arr[0].second);
+    }
+    else {
+        None();
+    }
+}
+
+replaceVars(e: Expr, arr: [Pair<string, Expr>]) -> Expr {
+    switch(e) {
+        Var(name): {
+            eitherMap(findVar(name, arr), \exp -> exp, e);
+        }
+
+        MinusVar(e1): MinusVar(replaceVars(e1, arr));
+
+        Mul(e1, e2): Mul(replaceVars(e1, arr), replaceVars(e2, arr));
+        Sub(e1, e2): Sub(replaceVars(e1, arr), replaceVars(e2, arr));
+        Sum(e1, e2): Sum(replaceVars(e1, arr), replaceVars(e2, arr));
+        Div(e1, e2): Div(replaceVars(e1, arr), replaceVars(e2, arr));
+    
+        default: e;
+    }
+}
+
+keyAlreadyExist(arr : [Pair<string, Expr>], key : string, value : Expr, index : int) -> bool {
+    result : ref bool = ref false;
+    fori(0, length(arr) - 1, \i -> {
+        if (i != index && arr[i].first == key && arr[i].second != value) result := true;
+    });
+    ^result;
+}
+
+checkArray(arr : [Pair<string, Expr>]) -> bool {
+    result : ref bool = ref true;
+    fori(0, length(arr) - 1, \i -> {
+        if (keyAlreadyExist(arr, arr[i].first, arr[i].second, i)) result := false;
+    });
+    ^result;
+}
+
+makeMap(e: Expr, rule: Expr, varsMap: [Pair<string, Expr>]) -> Maybe<[Pair<string, Expr>]> {
+    switch(rule) {
+        Var(name): Some(arrayPush(varsMap, Pair(name, e)));
+        MinusVar(e2): {
+            switch(e) {
+                MinusVar(e1): makeMap(e1, e2, varsMap);
+                default: None();
+            }
+        }
+        Mul(l2, r2): {
+            switch(e) {
+                Mul(l1, r1): {
+                    m1 = makeMap(l1, l2, varsMap);
+                    m2 = makeMap(r1, r2, varsMap);
+                    maybeMap2(concat)(m1, m2);
+                }
+                default: None();
+            }
+        }
+        Sub(l2, r2): {
+            switch(e) {
+                Sub(l1, r1): {
+                    m1 = makeMap(l1, l2, varsMap);
+                    m2 = makeMap(r1, r2, varsMap);
+                    maybeMap2(concat)(m1, m2);
+                }
+                default: None();
+            }
+        }
+        Sum(l2, r2): {
+            switch(e) {
+                Sum(l1, r1): {
+                    m1 = makeMap(l1, l2, varsMap);
+                    m2 = makeMap(r1, r2, varsMap);
+                    maybeMap2(concat)(m1, m2);
+                }
+                default: None();
+            }
+        }
+        Div(l2, r2): {
+            switch(e) {
+                Div(l1, r1): {
+                    m1 = makeMap(l1, l2, varsMap);
+                    m2 = makeMap(r1, r2, varsMap);
+                    maybeMap2(concat)(m1, m2);
+                }
+                default: None();
+            }
+        }
+        Int(i): {
+            if (e == rule) Some(varsMap)
+            else None();
+        }
+    }
+}
+
+getSimplifiedForms(e: Expr, identites : Set<Identity>) -> [Expr] {
+    arr = getCombinationsArray(e, identites);
+    exprs = ExpArray(arr, getSize(arr[0]));
+    index : ref int = ref 0;
+    applyRulesForArray(exprs, index, identites);
+}
+
+pushOp(arr: [Expr], e1 : Expr, e2 : Expr, op: string) -> [Expr] {
+    if (op == "mul") {
+        arrayPush(arr, Mul(e1, e2));
+    }
+    else if (op == "sum") {
+        arrayPush(arr, Sum(e1, e2));
+    }
+    else if (op == "sub") {
+        arrayPush(arr, Sub(e1, e2));
+    }
+    else if (op == "div") {
+        arrayPush(arr, Div(e1, e2));
+    }
+    else {
+        arr;
+    }
+}
+
+combineExps(arr1: [Expr], arr2: [Expr], op: string) -> [Expr] {
+    fold(arr1, [], \acc1, e1 -> {
+        tmp = fold(arr2, [], \acc2, e2 -> {
+            pushOp(acc2, e1, e2, op);
+        });
+        concat(acc1, tmp);
+    });
+}
+
+getCombinationsArray(e: Expr, identites : Set<Identity>) -> [Expr] { // массив комбинаций
+    switch(e) {
+        Mul(e1, e2): {
+            arr1 = getSimplifiedForms(e1, identites);
+            arr2 = getSimplifiedForms(e2, identites);
+            combineExps(arr1, arr2, "mul");
+        }
+        Sub(e1, e2): {
+            arr1 = getSimplifiedForms(e1, identites);
+            arr2 = getSimplifiedForms(e2, identites);
+            combineExps(arr1, arr2, "sub");
+        }
+        Sum(e1, e2): {
+            arr1 = getSimplifiedForms(e1, identites);
+            arr2 = getSimplifiedForms(e2, identites);
+            combineExps(arr1, arr2, "sum");
+        }
+        Div(e1, e2): {
+            arr1 = getSimplifiedForms(e1, identites);
+            arr2 = getSimplifiedForms(e2, identites);
+            combineExps(arr1, arr2, "div");
+        }
+        MinusVar(e1) : {
+            arr = getSimplifiedForms(e1, identites);
+            map(arr, \exp -> MinusVar(exp));
+        }
+        default: [e];
+    }
+}
+
+applyIdentity(e: Expr, identity: Identity) -> Expr {
+    varMap = makeMap(e, identity.in, []);
+
+    varMapArr = either(varMap, []);
+    if (checkArray(varMapArr) && length(varMapArr) > 0) {
+        replaceVars(identity.out, varMapArr);
+    } else {
+        e;
+    }
+}
+
+pushExpr(exp_arr : ExpArray, element : Expr, index : ref int) -> ExpArray {
+    newSize = getSize(element);
+    oldSize = exp_arr.smallestSize;
+    array = exp_arr.array;
+
+    if (oldSize == newSize && !contains(array, element)) {
+        ExpArray(arrayPush(array, element), newSize);
+    }
+    else if (oldSize > newSize) {
+        index := 0;
+        ExpArray([element], newSize);
+    }
+    else {
+        exp_arr;
+    }
+}
+
+applyRulesForArray(exprsPair: ExpArray, index : ref int, identites : Set<Identity>) -> [Expr] { // применяем правила к массиву комбинаций
+    exprsArray = exprsPair.array;
+    if (^index < length(exprsArray)) {
+        curExpr : Expr = exprsArray[^index];
+
+        arr = fold(getCombinationsArray(curExpr, identites), exprsPair, \s, e -> pushExpr(s, e, index));
+
+        simplifiedForms = foldSet(identites, arr, \acc, r -> {
+            pushExpr(acc, applyIdentity(curExpr, r), index);
+        });
+
+        index := ^index + 1;
+        applyRulesForArray(simplifiedForms, index, identites);
+    } else {
+        exprsArray;
+    }
+}

@@ -1,0 +1,15 @@
+import parse;
+
+export {
+toStr(e: Expr) -> string {
+    switch(e) {
+        Int(i): i2s(i);
+        Var(name): name;
+        MinusVar(e1): "-" + toStr(e1);
+        Sub(e1, e2): toStr(e1) + " - " + toStr(e2);
+        Sum(e1, e2): toStr(e1) + " + " + toStr(e2);
+        Div(e1, e2): toStr(e1) + " / " + toStr(e2);
+        Mul(e1, e2): "(" + toStr(e1) + " * " + toStr(e2) + ")"
+    }
+}
+}

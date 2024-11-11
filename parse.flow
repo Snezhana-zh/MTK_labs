@@ -1,0 +1,34 @@
+import string;
+import lingo/pegcode/driver;
+
+export {
+Expr ::= Int, Sub, Sum, Mul, Div, Var, MinusVar;
+Int(value : int);
+Sub(l : Expr, r : Expr);
+Sum(l : Expr, r : Expr);
+Div(l : Expr, r : Expr);
+Mul(l : Expr, r : Expr);
+Var(v : string);
+MinusVar(e : Expr);
+
+Rational : (a: int, b: int);
+
+Fraction : (p1: Expr, p2: Expr);
+
+lingoGrammar = compilePegGrammar("#include labs/grammar7lab.lingo");
+
+buildSub(xs : [flow]) {
+	fold(xs[1], xs[0], \acc, x -> Sub(acc, x));
+}
+
+buildDiv(xs : [flow]) {
+	fold(xs[1], xs[0], \acc, x -> Div(acc, x));
+}
+
+specialPegActions = {
+	t = setTree(defaultPegActions.t, "buildDiv", buildDiv);
+    res_t = setTree(t, "buildSub", buildSub);
+	SemanticActions(res_t);
+}
+
+}

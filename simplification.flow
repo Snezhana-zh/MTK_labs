@@ -1,0 +1,113 @@
+import string;
+import lingo/pegcode/driver;
+import parse;
+import calculate;
+
+export {
+
+makeRationalExpr(a:int, b:int) -> Expr {
+    if (b == 1) {
+        Int(a);
+    }
+    else {
+        Div(Int(a), Int(b));
+    }
+}
+
+isZero(r1 : Rational) -> bool {
+    if (r1.b != 0 && r1.a == 0) true
+    else false
+}
+
+isOne(r1 : Rational) -> bool {
+    if (r1.b != 0 && r1.a == r1.b) true
+    else false
+}
+
+isNeg(e1 : Expr, e2 : Expr) {
+    if (e1 == MinusVar(e2) || e2 == MinusVar(e1)) true
+    else false
+}
+
+simplificationMul(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(calcExpr(e1, []), Rational(0, 0));
+    r2 = either(calcExpr(e2, []), Rational(0, 0));
+    if (Valid(r1) && Valid(r2)) {
+        r = shortenRational(Rational(r1.a * r2.a, r1.b * r2.b));
+        makeRationalExpr(r.a, r.b);
+    }
+    else if (isZero(r1) || isZero(r2)) {
+        Int(0);
+    }
+    else if (isOne(r1)) {
+        e2;
+    }
+    else if (isOne(r2)) {
+        e1;
+    }
+    else {
+        Mul(e1, e2);
+    }
+}
+
+simplificationDiv(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(calcExpr(e1, []), Rational(0, 0));
+    r2 = either(calcExpr(e2, []), Rational(0, 0));
+    if (Valid(r1) && Valid(r2)) {
+        r = shortenRational(Rational(r1.a * r2.b, r1.b * r2.a));
+        makeRationalExpr(r.a, r.b);
+    }
+    else if (isZero(r1)) {
+        Int(0);
+    }
+    else if (isOne(r2)) {
+        e1;
+    }
+    else {
+        Div(e1, e2);
+    }
+}
+
+simplificationSub(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(calcExpr(e1, []), Rational(0, 0));
+    r2 = either(calcExpr(e2, []), Rational(0, 0));
+    if (Valid(r1) && Valid(r2)) {
+        r = shortenRational(Rational(r1.a * r2.b - r1.b * r2.a, r1.b * r2.b));
+        makeRationalExpr(r.a, r.b);
+    }
+    else if (isZero(r1)) {
+        MinusVar(e2);
+    }
+    else if (isZero(r2)) {
+        e1;
+    }
+    else if (e1 == e2) {
+        Int(0);
+    }
+    else {
+        Sub(e1, e2);
+    }
+}
+
+simplificationSum(e1 : Expr, e2 : Expr) -> Expr {
+    r1 = either(calcExpr(e1, []), Rational(0, 0));
+    r2 = either(calcExpr(e2, []), Rational(0, 0));
+    if (Valid(r1) && Valid(r2)) {
+        r = shortenRational(Rational(r1.a * r2.b + r1.b * r2.a, r1.b * r2.b));
+        makeRationalExpr(r.a, r.b);
+    }
+    else if (isZero(r1)) {
+        e2;
+    }
+    else if (isZero(r2)) {
+        e1;
+    }
+    else if (isNeg(e1, e2)) {
+        Int(0);
+    }
+    else {
+        Sum(e1, e2);
+    }
+}
+
+}

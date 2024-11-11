@@ -1,0 +1,34 @@
+import string;
+import lingo/pegcode/driver;
+import parse;
+import simplification;
+import derive;
+import fraction;
+import identities;
+
+main() {
+    s : string = " (x * y + y * x) + c ";
+
+    // s : string = " x + x ";
+
+    e : Expr = parsic(lingoGrammar, s, specialPegActions);
+
+    pairs : [Pair<string, string>] = [
+        Pair(" a * b + a * c ", " a * (b + c) "),
+        Pair(" a + a ", " a * 2 "), 
+        Pair(" a + b ", " b + a "),
+        Pair(" a * b ", " b * a ")
+    ];
+
+    set = ref makeSet();
+    fori(0, length(pairs) - 1, \i -> {
+        r = Identity(parsic(lingoGrammar, pairs[i].first, specialPegActions), 
+                        parsic(lingoGrammar, pairs[i].second, specialPegActions));
+        set := insertSet(^set, r);
+    })
+
+    e_simple : Expr = getSmallestForm(e, ^set);
+    repr = toStr(e_simple);
+    println(toStr(e));
+    println(toStr(e_simple));  
+}
