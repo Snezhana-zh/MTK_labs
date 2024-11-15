@@ -1,15 +1,30 @@
 import parse;
 
 export {
-toStr(e: Expr) -> string {
+
+toStr(e: Expr, wasMul : bool) -> string {
     switch(e) {
+        Sum(e1, e2): {
+            if (wasMul) {
+                "(" + toStr(e1, false) + " + " + toStr(e2, false) + ")";
+            }
+            else {
+                toStr(e1, false) + " + " + toStr(e2, false);
+            }
+        }
+        Sub(e1, e2): {
+            if (wasMul) {
+                "(" + toStr(e1, false) + " + " + toStr(e2, false) + ")";
+            }
+            else {
+                toStr(e1, false) + " + " + toStr(e2, false);
+            }
+        }
+        Mul(e1, e2): toStr(e1, true) + " * " + toStr(e2, true);
+        Div(e1, e2): toStr(e1, true) + " / " + toStr(e2, true);
         Int(i): i2s(i);
         Var(name): name;
-        MinusVar(e1): "-" + toStr(e1);
-        Sub(e1, e2): toStr(e1) + " - " + toStr(e2);
-        Sum(e1, e2): toStr(e1) + " + " + toStr(e2);
-        Div(e1, e2): toStr(e1) + " / " + toStr(e2);
-        Mul(e1, e2): "(" + toStr(e1) + " * " + toStr(e2) + ")"
+        MinusVar(e1): "-" + toStr(e1, wasMul);
     }
 }
 }
