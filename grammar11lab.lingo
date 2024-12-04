@@ -1,0 +1,64 @@
+program = ws varDefinitionArray:vd ws body:b ws {Proga(:vd, :b)};
+
+NumExpr = ws sum;
+sum = sub:e1 '+' ws sum:e2 ws { Sum(:e1, :e2) } | sub:e ws { :e };
+sub = mul:h ('-' ws mul:r ws { :r })*:tail { buildSub(:h, :tail) };
+mul = ws div:e1 ws '*' ws mul:e2 ws { Mul(:e1, :e2) } | div:e { :e };
+div = factor:h ws ('/' ws factor:r ws { :r })*:tail { buildDiv(:h, :tail) };
+factor = neg | varExpr | intConst | '(' NumExpr:e1 ')' { :e1 };
+neg = '-' NumExpr:e { MinusVar(:e) };
+
+const = intConst | arrayConst;
+intConst = intNumber$d {IntConst(s2i($d))};
+intNumber = '-'* digits;
+digits = digit+;
+
+arrayConst = "[" ws (number | arrayConst)?:e1 ("," ws (number | arrayConst))*:e2 "]" ws { buildArray(:e1, :e2) };
+number = digit+$d ws { IntConst(s2i($d)) };
+
+varExpr = varName:n {Var(:n)};
+
+varDefinitionArray = varDefinition*:vd {VarDefinitionArray(:vd)};
+varDefinition = ws "var" s+ varName:vn ws ':' ws type:t ws ';' ws {VarDefinition(:vn, :t)};
+
+type = intType | arrayType;
+intType = "int" {IntType()};
+arrayType = '[' ws type:t ws ']' {ArrayType(:t)};
+
+varName = (symbol (symbol | digit)*)$vn {:vn};
+digit = '0'-'9';
+symbol = 'a'-'z' | 'A'-'Z';
+
+ws = s*;
+s = " " | "\t" | "\n";
+
+someOfOpSymbol = "U";
+
+body = statement;
+statement = (ws alternative:a ws ';' {:a})*:as {Sequence(:as)};
+
+alternative = bodyExp:t UBody*:ub ws {buildUBodies(:t, :ub)};
+UBody = ws someOfOpSymbol ws bodyExp:t {:t};
+bodyExp = arrayUpdate:op {:op} | print:op {:op} | assignment:op {:op} | test:op {:op} | iteration:op {:op} 
+    | '{' ws statement:s ws '}' {:s};
+
+print = "print" ws '(' ws rvalueExpr:e ws ')' {Print(:e)};
+assignment = varName:n ws ":=" ws rvalueExpr:e {Assignment(:n, :e)};
+test = '(' ws boolExpr:e ws ')' ws '?' {Test(:e)};
+iteration = '{' ws body:b ws '}' ws '*' {Iteration(:b)};
+
+rvalueExpr = arrayApply | boolExpr | NumExpr | const | varExpr;
+
+arrayUpdate = 'upd' ws '(' ws rvalueExpr:a ws ',' ws rvalueExpr:i ws ',' ws rvalueExpr:v ws ')' {ArrayUpdate(:a, :i, :v)};
+arrayApply = 'app' ws '(' ws varExpr:a ws ',' ws rvalueExpr:i ws ')' {ArrayApply(:a, :i)};
+
+boolExpr = ws or:or ws {:or};
+or = and:a ws '||' ws or:or {Or(:a, :or)} | and:a {:a};
+and = boolCompRec:b ws '&&' ws and:a {And(:b, :a)} | boolCompRec:b {:b};
+
+boolCompRec = boolComp:b {:b} | '(' ws boolCompRec:b ws ')' {:b};
+boolComp = boolVar:lb ws '=' ws boolVar:rb {Equal(:lb, :rb)} | boolVar:lb ws '<' ws boolVar:rb {Less(:lb, :rb)}
+    | boolVar:lb ws "<=" ws boolVar:rb {buildLessOrEqual(:lb, :rb)} | boolVar:lb ws ">" ws boolVar:rb {Less(:rb, :lb)}
+    | boolVar:lb ws ">=" ws boolVar:rb {buildGreaterOrEqual(:lb, :rb)} | boolVar:lb ws "!=" ws boolVar:rb {buildNotEqual(:lb, :rb)}
+    | 'not' ws boolExpr:e {Not(:e)} | '(' ws boolExpr:e ws ')' {:e};
+boolVar = NumExpr | varExpr | const;

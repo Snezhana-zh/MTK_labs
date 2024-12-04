@@ -1,0 +1,137 @@
+import description;
+
+export {
+
+findTypeInDecl(varName: string, vdlist: VarDefinitionArray) -> Maybe<Types> {
+    maybeMap(find(vdlist.elems, \vd -> vd.name == varName), \vd -> vd.type)
+}
+
+maybeArrayType(t: Maybe<Types>) -> Maybe<ArrayType> {
+    maybeBind(t, \type-> {
+        switch(type) { 
+            IntType(): None(); 
+            ArrayType(arr): Some(type);
+        }
+    }
+    );
+}
+
+maybeIntType(t: Maybe<Types>) -> Maybe<IntType> {
+    maybeBind(t, \type-> {
+        switch(type) { 
+            IntType(): Some(type); 
+            ArrayType(arr): None();
+        }
+    }
+    );
+}
+
+checkIntType(e1: NumExpr, e2: NumExpr, vdlist: VarDefinitionArray) -> Maybe<Types> {
+    e1_t = maybeIntType(findExpressionType(e1, vdlist));
+    e2_t = maybeIntType(findExpressionType(e2, vdlist));
+    maybeBind2(\t1, t2 -> if (t1 == t2) Some(IntType()) else None())(e1_t, e2_t);
+}
+
+isIntConst(e: RvalueExpr) -> bool {
+    switch(e) {
+        IntConst(i) : true;
+        default : false;
+    } 
+}
+
+findExpressionType(e: RvalueExpr, vdlist: VarDefinitionArray) -> Maybe<Types> {
+    switch(e) {
+        Array(a) : {
+            tp = fold(a,
+             findExpressionType(a[0], vdlist),
+             \acc, exp -> maybeBind2(\t1, t2 -> if (t1 == t2) Some(t1)
+              else None())
+              (acc, findExpressionType(exp, vdlist)));
+            maybeBind(tp, \t -> Some(ArrayType(t)))
+        }
+        IntConst(v): Some(IntType());
+        Var(name): findTypeInDecl(name, vdlist);
+        BoolExpr(): Some(IntType()); // 1 or 0 - int
+        Sub(l, r): checkIntType(l, r, vdlist);
+        Sum(l, r): checkIntType(l, r, vdlist);
+        Div(l, r): checkIntType(l, r, vdlist);
+        Mul(l, r): checkIntType(l, r, vdlist);
+        MinusVar(em): maybeIntType(findExpressionType(em, vdlist));
+        ArrayApply(arr, index) : {
+            if (isIntConst(index)) {
+                tp = maybeArrayType(findExpressionType(arr, vdlist));
+                maybeMap(tp, \at -> at.Type);
+            }
+            else {
+                None();
+            }
+        }
+    }
+}
+
+typeEquals(t1 : Maybe<Types>, t2 : Maybe<Types>) -> bool {
+    res = maybeBind2(\v1, v2 -> 
+    if (v1 == v2) Some(v1)
+    else None())
+    (t1, t2);
+    isSome(res);
+}
+
+checkAssignment(varName : string, expr : RvalueExpr, vdlist: VarDefinitionArray) -> bool {
+    varType = findTypeInDecl(varName, vdlist);
+    exprType = findExpressionType(expr, vdlist);
+
+    typeEquals(varType, exprType);
+}
+
+checkBool(expr : BoolExpr, vdlist: VarDefinitionArray) -> bool {
+    switch(expr) {
+        Equal(l, r): {
+            t1 = findExpressionType(l, vdlist);
+            t2 = findExpressionType(r, vdlist);
+            typeEquals(t1, t2);
+        };
+        Less(l, r): {
+            t1 = findExpressionType(l, vdlist);
+            t2 = findExpressionType(r, vdlist);
+            typeEquals(t1, t2);
+        };
+        Not(e): checkBool(e, vdlist);
+        Or(l, r): checkBool(l, vdlist) && checkBool(r, vdlist);
+        And(l, r): checkBool(l, vdlist) && checkBool(r, vdlist);
+    }
+}
+
+checkUpdate(arr : Var, index : RvalueExpr, value : RvalueExpr, varDefArr : VarDefinitionArray) -> bool {
+    if (isIntConst(index)) {
+        arrType = maybeArrayType(findExpressionType(arr, varDefArr));
+        if (isSome(arrType)) {
+            valType = findExpressionType(value, varDefArr);
+            res = maybeBind2(\ar : ArrayType, vt : Types -> if (ar.Type == vt) Some(ar) else None())(arrType, valType);
+            isSome(res);
+        }
+        else false;
+    }
+    else {
+        false;
+    }
+}
+
+varifyTree(varDefArr : VarDefinitionArray, body : Body) -> bool {
+    switch(body) {
+        Assignment(varName, expr): checkAssignment(varName, expr, varDefArr);
+        Test(be): checkBool(be, varDefArr);
+        Print(e): true;
+        Sequence(bodies): fold(bodies, true, \acc, b -> acc && varifyTree(varDefArr, b));
+        Iteration(b): varifyTree(varDefArr, b);
+        UBodies(bodies): fold(bodies, true, \acc, b -> acc && varifyTree(varDefArr, b));
+        ArrayUpdate(arr, index, value): checkUpdate(arr, index, value, varDefArr);
+    }
+}
+
+varifyProga(proga : Proga) -> bool {
+    varifyTree(proga.varDefArr, proga.body);
+}
+
+
+}

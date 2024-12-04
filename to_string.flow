@@ -1,0 +1,155 @@
+import string;
+import description;
+import vmnemo;
+
+export {
+
+VarDefArToStr(vdl : VarDefinitionArray) -> string;
+
+rvalueExprToStr(e : RvalueExpr) -> string;
+
+printBody(body : Body) -> string {
+    switch (body) {
+        Assignment(v, e) : v + " := " + rvalueExprToStr(e);
+        Sequence(bs) : fold(bs, "", \acc, b -> acc + printBody(b) + "\n");
+        UBodies(bs) : fold(bs, "", \acc, b -> acc + printBody(b));
+        Iteration(b) : "{" + printBody(b) + "}*";
+        Test(e) : boolExprToStr(e);
+        Print(e) : "print(" + rvalueExprToStr(e) + ")";
+        ArrayUpdate(arr, i, v) : "upd(" + rvalueExprToStr(arr) + ", " + rvalueExprToStr(i) + ", " + rvalueExprToStr(v) + ")";
+    }
+}
+
+typeToStr(t : Types) -> string {
+    switch (t) {
+        IntType() : "int";
+        ArrayType(Type) : "[" + typeToStr(Type) + "]";
+    }
+}
+
+varDefToStr(v: VarDefinition) -> string {
+    "var " + v.name + " : " + typeToStr(v.type) + ";";
+}
+
+VarDefArToStr(vd : VarDefinitionArray) -> string {
+    fold(vd.elems, "", \s, d -> {
+        s + varDefToStr(d) + "\n";
+    })
+}
+
+ExpToStr(e : NumExpr, wasMul : bool) -> string {
+    switch(e) {
+        Sum(e1, e2): {
+            if (wasMul) {
+                "(" + ExpToStr(e1, false) + " + " + ExpToStr(e2, false) + ")";
+            }
+            else {
+                ExpToStr(e1, false) + " + " + ExpToStr(e2, false);
+            }
+        }
+        Sub(e1, e2): {
+            if (wasMul) {
+                "(" + ExpToStr(e1, false) + " + " + ExpToStr(e2, false) + ")";
+            }
+            else {
+                ExpToStr(e1, false) + " + " + ExpToStr(e2, false);
+            }
+        }
+        Mul(e1, e2): ExpToStr(e1, true) + " * " + ExpToStr(e2, true);
+        Div(e1, e2): ExpToStr(e1, true) + " / " + ExpToStr(e2, true);
+        IntConst(i): i2s(i);
+        Var(name): name;
+        MinusVar(e1): "-" + ExpToStr(e1, wasMul);
+    }
+}
+
+boolExprToStr(e : BoolExpr) -> string {
+    switch (e) {
+        Equal(l, r) : rvalueExprToStr(l) + "=" + rvalueExprToStr(r);
+        Less(l, r) : rvalueExprToStr(l) + "<" + rvalueExprToStr(r);
+        Not(ex) : "not(" + boolExprToStr(ex) + ")";
+        Or(l, r) : "(" + boolExprToStr(l) + ")" + " || " + "(" + boolExprToStr(r) + ")";
+        And(l, r) : "(" + boolExprToStr(l) + ")" + " && " + "(" + boolExprToStr(r) + ")";
+    }
+}
+
+rvalueExprToStr(e : RvalueExpr) -> string {
+    switch (e) {
+        Var(name) : name;
+        IntConst(c) : i2s(c);
+        NumExpr() : ExpToStr(e, false);
+        ArrayApply(arr, index) : "app(" + rvalueExprToStr(arr) + ", " + rvalueExprToStr(index) + ")";
+        BoolExpr() : boolExprToStr(e);
+        Array(a) : "array";
+    }
+}
+
+// arToStr(arr: [int]) -> string {
+//     strGlue(map(arr, i2s), ", ");
+// }
+
+// printArrayTypeRec(t: vmType) {
+//   switch(t) {
+//     vmIntType(): "INT;";
+//     vmArrayType(t1): "ARRAY OF " + printArrayTypeRec(t1);
+//   }
+// }
+
+// printDecl(declVm : Decl) {
+//   switch(declVm.t) {
+//     vmIntType(): println("VAR "+ declVm.v.val + ": INT;"); 
+//     vmArrayType(t): println("VAR " + declVm.v.val + ": ARRAY OF " + printArrayTypeRec(t));
+//   }
+// }
+
+// printVmLine(line: Line) -> void {
+//     ins = line.instruction;
+//     switch(ins) {
+//         ITest(b): println(i2s(line.label) + ": if " + bool2s(b) + " then " + "{" + arToStr(line.goto) + "}" + " else {} ");
+//         IAssignment(v, e): println(i2s(line.label) + ": " + v.val + " := " + expr2s(e) + " goto {" + arToStr(line.goto) + "}");
+//         IPrint(v): println(i2s(line.label) + ": print(" + expr2s(v) + ")" + " goto {" + arToStr(line.goto) + "}");
+//         IUpdate(a, v, v1): println("update");
+//     }
+// }
+
+// cond2s(c : vmSignEqLs) -> string {
+//     switch(c) {
+//         vmEq(): "==";
+//         vmLs(): "<";
+//     }
+// }
+
+// bool2s(b: vmBool) -> string {
+//     switch(b) {
+//         vmTrue(): "(TRUE)";
+//         vmAnd(b1, b2): "(" + bool2s(b1) + " AND " + bool2s(b2) + ")";
+//         vmOr(b1, b2): "(" + bool2s(b1) + " OR " + bool2s(b2) + ")";
+//         vmNot(b1): "(NOT" + bool2s(b1) + ")";
+//         vmSign(e1, e2, c): "(" + expr2s(e1) + " " + cond2s(c) + " " + expr2s(e2) + ")"; 
+//     }
+// }
+
+// expr2s(expr : vmExpr) -> string {
+//     switch(expr) {
+//         vmArray(e): "array";
+//         vmAdd(v1, v2): "(" + expr2s(v1) + " + " + expr2s(v2) + ")";
+//         vmSub(v1, v2): "(" + expr2s(v1) + " - " + expr2s(v2) + ")";
+//         vmDiv(v1, v2): "(" + expr2s(v1) + " / " + expr2s(v2) + ")";
+//         vmMult(v1, v2): "(" + expr2s(v1) + " * " + expr2s(v2) + ")";
+//         vmNegative(v): "(-" + expr2s(v) + ")";
+//         vmVar(v): v;
+//         vmInt(v): i2s(v);
+//         vmApply(arr, i): "APP(" + arr.val + ", " + expr2s(i) + ")";
+//         vmBool(v): "bool";
+//     }
+// }
+
+// printvmProg(prog: vmProg) -> void {
+//     println("Variable declarations: "); 
+//     iter(prog.decl, printDecl);
+
+//     iter(prog.body, printVmLine);
+//     println(i2s(length(prog.body)) + ":");
+// }
+
+}

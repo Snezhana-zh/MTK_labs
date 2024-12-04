@@ -1,0 +1,23 @@
+import lingo/pegcode/driver;
+import parse_nemo;
+import to_string;
+import verification;
+import vmnemo;
+
+lingoGrammar = compilePegGrammar("#include labs/grammar11lab.lingo");
+
+main() {
+    proga : string = "#include proga2.nemo";
+
+    nemo_proga : Proga = parsic(lingoGrammar, proga, specialPegActions);
+
+    println(VarDefArToStr(nemo_proga.varDefArr));
+    println(printBody(nemo_proga.body));
+
+    if (varifyProga(nemo_proga)) println("good proga\n")
+    else println("bad proga((\n");
+
+    vm_proga = toVMCode(nemo_proga);
+
+    executeProga(vm_proga);
+}

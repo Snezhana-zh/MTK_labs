@@ -1,0 +1,15 @@
+var n: int; 
+var x: int;
+var arr: [int];
+var y: int;
+{
+    n := 2;
+    x := 0;
+    {
+        (x < n)?;
+        x := x + 1;
+    }*;
+    print(x);
+    upd(arr, 0, 1);
+    y := app(arr, 0);
+};

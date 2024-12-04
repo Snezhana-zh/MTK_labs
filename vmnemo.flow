@@ -1,0 +1,328 @@
+import description;
+
+export {
+    vmProga : (Decl: [Decl], body: [Line]);
+    executeProga(prog: vmProga) -> void;
+    
+    Decl : (v: vmVar, t: typeVm);
+    Line : (label: int, instruction: Instruction, goto: [int]);
+
+    Instruction ::= IPrint, IAssignment, ITest, IUpdate;
+    IPrint : (e: ExprNemo);
+    ITest : (b: BoolVm);
+    IAssignment : (v: vmVar, e: ExprNemo);
+
+    typeVm ::= IntTypeVm, ArrayTypeVm;
+    IntTypeVm : ();
+    ArrayTypeVm : (t: typeVm);
+
+    ValVm ::= IArray, vmInt;
+
+    ExprNemo ::= IArray, NumVm, BoolVm;
+    NumVm ::= vmInt, ISub, IAdd, vmDiv, IMult, vmNegative, vmVar, IApply;
+
+    IAdd : (v1: NumVm, v2: NumVm);
+    ISub : (v1: NumVm, v2: NumVm);
+    IMult : (v1: NumVm, v2 : NumVm);
+    vmDiv : (v1: NumVm, v2 : NumVm);
+    vmNegative : (v: NumVm);
+    vmInt : (val: int);
+    vmVar : (val: string);
+    IArray : (e: [ValVm]);
+    IApply : (arr: vmVar, i: ExprNemo);
+    IUpdate : (arr: vmVar, i: ExprNemo, val: ExprNemo);
+
+    BoolVm ::= IAnd, IOr, INot, vmSign, True;
+    True : ();
+    IAnd : (b1: BoolVm, b2: BoolVm);
+    IOr : (b1: BoolVm, b2: BoolVm);
+    INot : (b: BoolVm);
+    vmSign : (e1: ExprNemo, e2: ExprNemo, c: vmSignEqLs);
+    vmSignEqLs ::= vmEqual, vmLess;
+    vmEqual();
+    vmLess();
+
+    toVMCode(nemo: Proga) -> vmProga;
+}
+
+State : (stateArr : [Pair<int, Tree<string, ValVm>>]);
+
+init(proga: vmProga) {
+    State([Pair(0, makeTreeDecl(proga.Decl))])
+}
+
+makeState(goto: [int], t: Tree<string, ValVm>) -> State {
+    State(map(goto, \e -> Pair(e, t)))
+}
+
+executeProga(prog: vmProga) -> void {
+    execute(
+        prog.body,
+        init(prog),
+        0
+    )
+}
+ 
+execute(lines: [Line], state: State, cur: int) -> void {
+    end = length(lines);
+    newState = fold(state.stateArr, State([]), \acc, e-> {
+        stateLine = execLine(lines[e.first], e.second);
+        State(filter(concat(acc.stateArr, stateLine.stateArr), \el -> el.first != end))
+    });
+    if (length(newState.stateArr) > 0) {
+        execute(lines, newState, cur + 1);
+    }
+}
+
+execLine(line: Line, vars: Tree<string, ValVm>) -> State {
+    switch (line.instruction) {
+        IAssignment(v, e): {
+            t = setTree(vars, v.val, findVal(e, vars));
+            makeState(line.goto, t);
+        }
+        ITest(b): if (cmp(b, vars)) makeState(line.goto, vars) else State([]);
+        IPrint(e): {
+            println(val2s(findVal(e, vars)));
+            makeState(line.goto, vars);
+        }
+        IUpdate(v1, v2, v3): {
+            val = findVal(v3, vars);
+            ind = findExpNemo(v2, vars);
+            vv = setArrVal(v1, ind, val, vars);
+
+            t = setTree(vars, v1.val, vv);
+            makeState(line.goto, t);
+        }
+    }
+}
+
+findVal(e: ExprNemo, vars: Tree<string, ValVm>) -> ValVm {
+    switch(e) {
+        vmInt(v): e;
+        IArray(v): e;
+        IAdd(v1,v2): findNum(v1,v2, vars, \a,b -> a + b);
+        ISub(v1,v2): findNum(v1,v2, vars, \a,b -> a - b);
+        IMult(v1,v2): findNum(v1,v2, vars, \a,b -> a * b);
+        vmDiv(v1,v2): findNum(v1,v2, vars, \a,b -> a / b);
+        vmNegative(v): vmInt(findExpNemo(v, vars));
+        vmVar(x): findVar(e, vars);
+        IApply(v1,v2): {
+            arr = findVar(v1,vars);
+            ind = findExpNemo(v2, vars);
+            getArrVal(arr, ind);
+        }
+        BoolVm() : {
+            if(cmp(e, vars)) vmInt(1)
+            else vmInt(0);
+        }
+    }
+}
+
+findNum(v1: ExprNemo, v2: ExprNemo, vars: Tree<string, ValVm>, fn: (int,int)->int) -> vmInt {
+    vmInt(fn(
+        findExpNemo(v1, vars),
+        findExpNemo(v2, vars)
+    ))
+}
+
+findExpNemo(e: ExprNemo, vars: Tree<string, ValVm>) -> int {
+    getIntVal(findVal(e, vars));
+}
+
+setArrVal(arv: vmVar, ind: int, val: ValVm, vars: Tree<string, ValVm> ) -> ValVm {
+    arr = switch(findVar(arv, vars)) {
+        IArray(e): e;
+        vmInt(v): {
+            [];
+        }
+    };
+    len = length(arr);
+    if (ind < len) {
+        IArray(replace(arr, ind, val));
+    } else {
+        IArray([val]);
+    }
+}
+
+getArrVal(arr: ValVm, ind: int) -> ValVm {
+    switch (arr) {
+        IArray(e): {
+            if (ind < length(e)) {
+                e[ind]
+            } else {
+                vmInt(-1);
+            }
+        }
+        vmInt(v): {
+            vmInt(-1);
+        }
+    }
+}
+
+cmp(b: BoolVm, vars: Tree<string, ValVm>) -> bool {
+    switch (b) {
+        BoolVm(): true;
+        IAnd(b1,b2): cmp(b1,vars) && cmp(b2,vars);
+        IOr(b1,b2): cmp(b1,vars) || cmp(b2, vars);
+        INot(bb): !cmp(bb, vars);
+        vmSign(v1,v2,c): {
+            vv1 = getIntVal(findVal(v1, vars));
+            vv2 = getIntVal(findVal(v2, vars));
+            switch(c) {
+                vmEqual(): vv1 == vv2;
+                vmLess(): vv1 < vv2;
+            }
+        }
+    }
+}
+
+findVar(var: vmVar, vars: Tree<string, ValVm>) -> ValVm {
+    v = lookupTree(vars, var.val);
+    switch (v) {
+        Some(vv) : vv;
+        None() : {
+            vmInt(-1);
+        }
+    }
+}
+
+val2s(v: ValVm) -> string {
+    switch(v) {
+        vmInt(vv): i2s(vv);
+        IArray(e): "[" + strGlue(map(e,val2s),", ") + "]";
+    }
+}
+
+getIntVal(v: ValVm) -> int {
+    switch (v) {
+        vmInt(vv): vv;
+        IArray(vv): {
+            -1;
+        };
+    }
+}
+
+makeTreeDecl(d: [Decl]) -> Tree<string, ValVm> {
+    fold(d, makeTree(), \acc, e -> setTree(acc, e.v.val, initType(e.t)))
+}
+
+initType(t: typeVm) -> ValVm {
+    switch(t) {
+        IntTypeVm(): vmInt(0);
+        ArrayTypeVm(e): IArray([initType(e)]);
+    }
+}
+
+
+toVMCode(nemo) {
+    vmProga(
+        decl2nvm(nemo.varDefArr),
+        makeBody(nemo.body)
+    )
+}
+
+decl2nvm(d: VarDefinitionArray) -> [Decl] {
+    map(d.elems, \e->Decl(
+        makeVar(e.name),
+        makeType(e.type)
+    ))
+}
+
+makeVar(v: string) -> vmVar {
+    vmVar(v)
+}
+
+makeType(t: Types) -> typeVm {
+    switch (t) {
+        IntType(): IntTypeVm();
+        ArrayType(v): ArrayTypeVm(makeType(v));
+    }
+}
+
+makeBody(body: Body) -> [Line] {
+    switch (body) {
+        Assignment(name, rvExp): [Line(0, IAssignment(makeVar(name), makeExprNemo(rvExp)), [1])];
+        Test(b) : [Line(0, ITest(makeBool(b)), [1])];
+        Sequence(b) : fold(b, [], \acc, e-> {
+            lines = makeBody(e);
+            len = length(acc);
+            concat(acc, makeShift(lines, len))
+        });
+        UBodies(b) : fold(b, [Line(0, ITest(True()), [])], \acc, e -> {
+            lines = makeBody(e);
+            len = length(acc);
+            nlen = len + length(lines);
+            concat(
+                mapi(
+                    acc,
+                    \ind, ee -> {
+                        if (ind == 0) {
+                            Line(ee.label, ee.instruction, arrayPush(ee.goto, len))
+                        } else {
+                            lineReplace(ee, len, nlen)
+                        }
+                    }
+                ),
+                makeShift(lines, len)
+            )
+        });
+        Iteration(b) : {
+            lines = makeBody(b);
+            len = length(lines);
+            concat(
+                [Line(0, ITest(True()), [1, len + 1])],
+                map(makeShift(lines, 1), \ee-> lineReplace(ee, len + 1, 0))
+            )
+        };
+        Print(e) : [Line(0, IPrint(makeExprNemo(e)), [1])];
+        ArrayUpdate(arr, index, value) : [Line(0, IUpdate(makeVar(arr.name), makeExprNemo(index), makeExprNemo(value)), [1])];
+    }
+}
+
+makeExprNemo(e: RvalueExpr) -> ExprNemo {
+    switch (e) {
+        Array(expr) : IArray(map(expr, makeVal));
+        BoolExpr() : makeBool(e);
+        NumExpr() : makeNum(e);
+        ArrayApply(arr, expr) : IApply(makeVar(arr.name), makeExprNemo(expr));
+    }
+}
+
+makeVal(v: Val) -> ValVm {
+    switch(v) {
+        Array(e): {
+            IArray(map(e, makeVal));
+        }
+        IntConst(val): vmInt(val);
+    }
+}
+
+makeNum(e: NumExpr) -> NumVm {
+    switch (e) {
+        Sum(v1,v2) : IAdd(makeNum(v1),makeNum(v2));
+        Sub(v1,v2) : ISub(makeNum(v1),makeNum(v2));
+        Mul(v1,v2) : IMult(makeNum(v1),makeNum(v2));
+        Div(v1,v2) : vmDiv(makeNum(v1),makeNum(v2));
+        MinusVar(v) : vmNegative(makeNum(v));
+        Var(v) : makeVar(v);
+        IntConst(v) : vmInt(v);
+    }
+}
+
+makeBool(b : BoolExpr) -> BoolVm {
+    switch (b) {
+        Not(v) : INot(makeBool(v));
+        And(b1, b2) : IAnd(makeBool(b1), makeBool(b2));
+        Or(b1, b2) : IOr(makeBool(b1), makeBool(b2));
+        Equal(l, r) : vmSign(makeExprNemo(l), makeExprNemo(r), vmEqual());
+        Less(l, r) : vmSign(makeExprNemo(l), makeExprNemo(r), vmLess());
+    }    
+}
+
+makeShift(l: [Line], val: int) -> [Line] {
+    map(l, \e-> Line(e.label + val, e.instruction, map(e.goto, \ee -> ee + val)))
+}
+
+lineReplace(l: Line, old: int, new: int) -> Line {
+    Line(l.label, l.instruction, map(l.goto, \e -> if (e == old) new else e))
+}

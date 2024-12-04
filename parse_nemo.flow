@@ -1,0 +1,53 @@
+import lingo/pegcode/driver;
+import string;
+import description;
+
+export {
+
+buildSub(xs : [flow]) {
+	fold(xs[1], xs[0], \acc, x -> Sub(acc, x));
+}
+
+buildDiv(xs : [flow]) {
+	fold(xs[1], xs[0], \acc, x -> Div(acc, x));
+}
+
+buildLessOrEqual(a : [flow]) {
+    Or(Equal(a[0], a[1]), Less(a[0], a[1]));
+}
+
+buildGreaterOrEqual(a : [flow]) {
+    Or(Equal(a[0], a[1]), Less(a[1], a[0]));
+}
+
+buildNotEqual(a : [flow]) {
+    Not(Equal(a[0], a[1]));
+}
+
+buildUBodies(a : [flow]) {
+    UBodies(concat([a[0]], a[1]));
+}
+
+buildArray(a : [flow]) {
+    Array(concat(a[0], a[1]))
+}
+
+specialPegActions = {
+    actions : [Pair<string, ([flow]) -> flow>] = [
+        Pair("buildSub", buildSub),
+        Pair("buildDiv", buildDiv),
+        Pair("buildLessOrEqual", buildLessOrEqual),
+        Pair("buildGreaterOrEqual", buildGreaterOrEqual),
+        Pair("buildNotEqual", buildNotEqual),
+        Pair("buildUBodies", buildUBodies),
+        Pair("buildArray", buildArray)
+    ];
+
+    SemanticActions(fold(
+        actions, defaultPegActions.t, \acc, p -> {
+            setTree(acc, p.first, p.second);
+        }
+    ));
+}
+
+}
